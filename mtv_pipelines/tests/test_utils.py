@@ -170,3 +170,15 @@ class TestForkliftBranchFromJenkinsJob:
         )
         with pytest.raises(ValueError, match="No forklift branch found"):
             utils.forklift_branch_from_jenkins_job(job)
+
+
+class TestIibShortForTargetOcp:
+    def test_rewrites_v50_to_v422(self):
+        assert utils.iib_short_for_target_ocp(
+            "forklift-fbc-prod-v50:on-pr-abc", "4.22"
+        ) == "forklift-fbc-prod-v422:on-pr-abc"
+
+    def test_rewrites_v50_to_v50_for_ocp_5(self):
+        assert utils.iib_short_for_target_ocp(
+            "forklift-fbc-prod-v50:on-pr-abc", "5.0"
+        ) == "forklift-fbc-prod-v50:on-pr-abc"

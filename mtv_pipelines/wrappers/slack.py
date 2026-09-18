@@ -499,3 +499,23 @@ class Slack:
             ts=timestamp.timestamp,
         )
         logger.info({"Triggered CI jobs slack message TS": ts})
+
+    def send_tier1_run(
+        self,
+        mtv_version: str,
+        ocp_version: str,
+        iib: str,
+    ) -> SlackBuildMessageTSDTO:
+        dt = datetime.now(UTC).strftime("%d.%m.%Y %H:%M")
+        builder = SlackBuilder()
+        builder.header(f"TIER1 {mtv_version} | {dt} UTC")
+        builder.context(["*Build type*  |  Saturday weekly"])
+        builder.section(
+            f"*MTV*  {mtv_version}\n*OCP*  {ocp_version}\n*IIB*  `{iib}`"
+        )
+        ts = self.send_block(builder.build(), self.channel)
+        logger.info({"Tier1 slack parent TS": ts})
+        return SlackBuildMessageTSDTO(
+            iib_version=mtv_version, timestamp=ts
+        )
+

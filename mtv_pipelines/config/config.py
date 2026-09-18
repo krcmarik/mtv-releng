@@ -169,5 +169,13 @@ def get_ui_cluster_mapping() -> dict:
     return _parse_simple("ui_cluster_mapping")
 
 
+def get_tier1_jobs() -> dict:
+    return _parse_simple("tier1_jobs")
+
+
+def get_latest_iib_state_path() -> str:
+    return _parse_simple("latest_iib_state_path")
+
+
 def get_release_conf_path() -> str:
     return _parse_simple("release_conf_path")

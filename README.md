@@ -95,6 +95,46 @@ The main end-to-end automation pipeline:
 
 **Key flags:** `--process-version`, `--process-bundle`, `--skip-jenkins`, `--skip-slack`
 
+After Konflux FBC checks pass, `automatic_iib` also upserts `/app/data/latest_iib.json` (host `./data/latest_iib.json`) for versions listed under `tier1_jobs` in `config.yaml`. Saturday `trigger_tier1` reads that pointer. Konflux is not the scheduler.
+
+### `trigger_tier1`
+Weekly (Saturday) pipeline: trigger dedicated Jenkins tier1 jobs against the latest IIB recorded by `automatic_iib`.
+
+1. Read `data/latest_iib.json` (missing file → nothing to do until the first successful weekday IIB)
+2. For each `tier1_jobs` entry (today: MTV 2.12 on OCP 4.22, MTV 5.0 on OCP 5.0), rewrite the IIB OCP infix and trigger `mtv-{xy}-ocp-{ocp}-test-tier1` unless `last_tier1_iib` already equals that IIB
+3. After Jenkins accepts the job, set `last_tier1_iib` so the same IIB is not tested again
+4. Post a Slack parent thread per version on the same slackMTV bot / `slack_builds_channel` as weekday builds (not the IIB changelog), then job links
+5. Wait for Jenkins, run the analyzer (best-effort), post CI pass/fail in the same thread
+
+The container stays up until Jenkins finishes, like `automatic_iib`. This is not a Konflux timer; run it from the same releng host and `./data/` volume as weekday IIB automation:
+
+```bash
+make run ARGS="trigger_tier1"
+```
+
+Host crontab example (ops, not stored in this repo):
+
+```cron
+0 8 * * 6 cd /path/to/mtv-releng && make run ARGS="trigger_tier1"
+```
+
+Pointer file shape (one key per MTV x.y):
+
+```json
+{
+  "2.12": {
+    "mtv_version": "2.12.6",
+    "iib": "forklift-fbc-prod-v50:on-pr-abc123",
+    "recorded_at": "2026-09-17T14:02:00Z",
+    "last_tier1_iib": null
+  }
+}
+```
+
+**Key flags:** `--skip-slack`, `--dry-run`
+
+**Env:** same as `automatic_iib` (`JENKINS_USER`, `JENKINS_TOKEN`, `SLACK_AUTH_TOKEN`, `ROOTCOZ`)
+
 ### `handle_pr`
 Processes an IIB from an FBC PR (PR-driven flow, mirrors `automatic_iib`).
 
@@ -249,6 +289,7 @@ All tunable settings live in [`mtv_pipelines/config/config.yaml`](mtv_pipelines/
 - Component mappings (`cmp_mappings`) — downstream name → upstream + git origin
 - Commit character limit for Slack messages
 - Storage offload cluster mappings (`storage_offload_clusters`) — MTV x.y → cluster name, API URL, OCP version, and `password_env`
+- Saturday tier1 job map (`tier1_jobs`) — MTV x.y → OCP version for `mtv-{xy}-ocp-{ocp}-test-tier1`, plus `latest_iib_state_path`
 
 ### Storage offload clusters
 

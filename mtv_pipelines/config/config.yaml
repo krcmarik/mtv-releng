@@ -22,6 +22,16 @@ storage_offload_clusters:
     ocp_version: "4.21"
     password_env: "STORAGE_OFFLOAD_CLUSTER_EDGE113"
 
+# Saturday tier1 Jenkins jobs: MTV x.y -> dedicated OCP (not bundle max).
+# Job name is mtv-{xy}-ocp-{ocp_version}-test-tier1.
+# Pointer file is written by automatic_iib after Konflux FBC checks pass.
+latest_iib_state_path: "/app/data/latest_iib.json"
+tier1_jobs:
+  "2.12":
+    ocp_version: "4.22"
+  "5.0":
+    ocp_version: "5.0"
+
 # Cluster to OCP version mapping
 # if you want to disable CI for some OCP version, use "none"
 #

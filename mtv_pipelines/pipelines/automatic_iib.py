@@ -27,6 +27,7 @@ from semver import Version
 from tasks.extract_info import extract_info
 from tasks.get_commit_diff import get_commit_diff
 from tasks.get_mtv_versions import get_mtv_versions
+from tasks.latest_iib_state import record_from_fbc_repos
 from tasks.prepare_slack_build import prepare_slack_build
 from tasks.process_fbc_repo import process_fbc_repo
 from tasks.trigger_upgrade_jobs import trigger_upgrade_jobs
@@ -316,6 +317,25 @@ async def wait_for_prs(
         if result:
             results.append(result)
     return results
+
+
+@task
+@depends_on(wait_for_prs)
+async def record_latest_iib(
+    data: list[FBCRepo], args: Namespace, tg: TaskGroup
+) -> EmptyDTO:
+    if not data:
+        logger.warning("Previous task didn't return any FBC repos")
+        return EmptyDTO()
+    try:
+        record_from_fbc_repos(
+            data,
+            path=config.get_latest_iib_state_path(),
+            tier1_jobs=config.get_tier1_jobs(),
+        )
+    except (OSError, RuntimeError):
+        logger.exception("Failed to record latest IIB pointer for tier1")
+    return EmptyDTO()
 
 
 @task

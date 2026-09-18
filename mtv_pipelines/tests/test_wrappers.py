@@ -434,6 +434,69 @@ class TestJenkinsManager:
             result = run(mgr.trigger_upgrade("2.11.0", "v4.21", "iib-1", "2.10"))
         assert result == {}
 
+    # -- get_test_tier1_args / trigger_tier1 ---------------------------------
+
+    def test_tier1_args_sets_tier1_matrix(self, mgr):
+        with patch(
+            "wrappers.jenkins.config.get_cluster_mappings",
+            return_value={"4.22": "cluster-c"},
+        ):
+            args = mgr.get_test_tier1_args("2.12.6", "4.22", "iib-t1")
+        assert args["MATRIX_TYPE"] == "TIER1"
+        assert args["CLUSTER_NAME"] == "cluster-c"
+        assert args["IIB_NO"] == "iib-t1"
+        assert args["MTV_VERSION"] == "2.12.6"
+        assert args["OCP_VERSION"] == "4.22"
+
+    def test_tier1_args_raises_on_unknown_ocp(self, mgr):
+        with patch(
+            "wrappers.jenkins.config.get_cluster_mappings",
+            return_value={"4.22": "cluster-c"},
+        ):
+            with pytest.raises(ValueError, match="not in cluster mappings"):
+                mgr.get_test_tier1_args("2.12.6", "9.99", "iib-x")
+
+    def test_tier1_args_returns_empty_when_cluster_none(self, mgr):
+        with patch(
+            "wrappers.jenkins.config.get_cluster_mappings",
+            return_value={"4.22": "none"},
+        ):
+            args = mgr.get_test_tier1_args("2.12.6", "4.22", "iib-x")
+        assert args == {}
+
+    def test_trigger_tier1_returns_job_info(self, mgr):
+        with (
+            patch(
+                "wrappers.jenkins.config.get_cluster_mappings",
+                return_value={"4.22": "cluster-c"},
+            ),
+            patch.object(mgr, "run_job", new_callable=AsyncMock, return_value=10),
+        ):
+            result = run(mgr.trigger_tier1("2.12.6", "v4.22", "iib-1"))
+        assert result["job_name"] == "mtv-2.12-ocp-4.22-test-tier1"
+        assert result["job_number"] == 10
+
+    def test_trigger_tier1_uses_50_job_name(self, mgr):
+        with (
+            patch(
+                "wrappers.jenkins.config.get_cluster_mappings",
+                return_value={"5.0": "qemtv-01"},
+            ),
+            patch.object(mgr, "run_job", new_callable=AsyncMock, return_value=3),
+        ):
+            result = run(mgr.trigger_tier1("5.0.0", "5.0", "iib-5"))
+        assert result["job_name"] == "mtv-5.0-ocp-5.0-test-tier1"
+
+    def test_trigger_tier1_returns_empty_when_no_job(self, mgr):
+        with (
+            patch(
+                "wrappers.jenkins.config.get_cluster_mappings",
+                return_value={"4.22": "none"},
+            ),
+        ):
+            result = run(mgr.trigger_tier1("2.12.6", "v4.22", "iib-1"))
+        assert result == {}
+
 
 # ---------------------------------------------------------------------------
 # JenkinsAnalyzer
@@ -922,3 +985,23 @@ class TestSlack:
         call_kwargs = slack.client.chat_postMessage.call_args.kwargs
         assert call_kwargs["thread_ts"] == "111.222"
         assert ts == "333.444"
+
+    def test_send_tier1_run_posts_parent_and_returns_timestamp(self, slack):
+        slack.client.chat_postMessage.return_value = {"ts": "555.666"}
+        result = slack.send_tier1_run(
+            "2.12.6",
+            "4.22",
+            "forklift-fbc-prod-v422:on-pr-abc",
+        )
+        assert result.timestamp == "555.666"
+        assert result.iib_version == "2.12.6"
+        call_kwargs = slack.client.chat_postMessage.call_args.kwargs
+        assert call_kwargs["channel"] == "#builds"
+        blocks = call_kwargs["blocks"]
+        header = blocks[0]["text"]["text"]
+        assert header.startswith("TIER1 2.12.6 |")
+        assert header.endswith("UTC")
+        blob = json.dumps(blocks)
+        assert "Saturday weekly" in blob
+        assert "4.22" in blob
+        assert "forklift-fbc-prod-v422:on-pr-abc" in blob
