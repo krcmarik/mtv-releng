@@ -38,9 +38,9 @@ cluster_mappings:
   "4.23": "none"
   "4.22": "qemtv-03"
   "4.21": "qemtv-04"
-  "4.20": "none"
-  "4.19": "none"
-  "4.18": "none"
+  "4.20": "qemtvd-06"
+  "4.19": "nocluster"
+  "4.18": "nocluster"
 
 # Override for the MTV version an upgrade job upgrades FROM, keyed by MTV X.Y.
 # Only needed when it can't be derived from the release semver, i.e. a major
